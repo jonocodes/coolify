@@ -53,6 +53,10 @@ class InstallPrerequisites
                 "echo 'Installing Prerequisites for Arch Linux...'",
                 'pacman -Syu --noconfirm --needed curl wget git jq',
             ]);
+        } elseif (Str::contains($osType, 'nixos')) {
+            // NixOS: prerequisites are managed declaratively via configuration.nix.
+            // Just verify the essential tools exist.
+            $server->executeInBackground("command -v curl && command -v git && command -v jq && echo 'NixOS: all prerequisites found' || echo 'WARNING: some prerequisites missing -- add them to environment.systemPackages'");
         } else {
             throw new \Exception('Unsupported OS type for prerequisites installation');
         }
