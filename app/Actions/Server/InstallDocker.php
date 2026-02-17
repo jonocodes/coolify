@@ -80,6 +80,8 @@ class InstallDocker
                 $command = $command->merge([$this->getSuseDockerInstallCommand()]);
             } elseif ($supported_os_type->contains('arch')) {
                 $command = $command->merge([$this->getArchDockerInstallCommand()]);
+            } elseif ($supported_os_type->contains('nixos')) {
+                $command = $command->merge([$this->getNixosDockerInstallCommand()]);
             } else {
                 $command = $command->merge([$this->getGenericDockerInstallCommand()]);
             }
@@ -162,5 +164,31 @@ class InstallDocker
     private function getGenericDockerInstallCommand(): string
     {
         return "curl --max-time 300 --retry 3 https://releases.rancher.com/install-docker/{$this->dockerVersion}.sh | sh || curl --max-time 300 --retry 3 https://get.docker.com | sh -s -- --version {$this->dockerVersion}";
+    }
+
+    private function getNixosDockerInstallCommand(): string
+    {
+        return "echo 'NixOS Docker Configuration Guide:' && ".
+               "echo '' && ".
+               "echo 'To use Coolify with NixOS, you need to add Docker to your configuration.nix file:' && ".
+               "echo '' && ".
+               "echo 'virtualisation.docker = {' && ".
+               "echo '  enable = true;' && ".
+               "echo '  enableOnBoot = true;' && ".
+               "echo '  autoPrune.enable = true;' && ".
+               "echo '};' && ".
+               "echo '' && ".
+               "echo 'Also add these packages to your environment.systemPackages:' && ".
+               "echo '  [' && ".
+               "echo '    docker' && ".
+               "echo '    docker-compose' && ".
+               "echo '    git' && ".
+               "echo '    jq' && ".
+               "echo '  ]' && ".
+               "echo '' && ".
+               "echo 'After updating your configuration.nix, run:' && ".
+               "echo '  sudo nixos-rebuild switch' && ".
+               "echo '' && ".
+               "echo 'Then click the \"Retry\" button in Coolify to continue validation.'";
     }
 }

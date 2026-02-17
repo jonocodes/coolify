@@ -58,6 +58,10 @@ class UpdatePackage
                     $commandAll = 'pacman -Syu --noconfirm';
                     $commandInstall = 'pacman -S --noconfirm '.$sanitizedPackage;
                     break;
+                case 'nixos':
+                    $commandAll = 'nix-channel --update nixos && nixos-rebuild switch';
+                    $commandInstall = 'nix-channel --update nixos && nixos-rebuild switch';
+                    break;
                 default:
                     return [
                         'error' => 'OS not supported',

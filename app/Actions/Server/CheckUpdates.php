@@ -59,6 +59,9 @@ class CheckUpdates
                 case 'fedora-asahi-remix':
                     $osType = 'fedora';
                     break;
+                case 'nixos':
+                    $osType = 'nixos';
+                    break;
                 default:
                     $osType = $osId;
             }
@@ -70,6 +73,7 @@ class CheckUpdates
                 'ubuntu', 'debian', 'raspbian' => 'apt',
                 'centos', 'fedora', 'rhel', 'ol', 'rocky', 'almalinux', 'amzn' => 'dnf',
                 'sles', 'opensuse-leap', 'opensuse-tumbleweed' => 'zypper',
+                'nixos' => 'nixos',
                 default => null
             };
 
@@ -103,6 +107,15 @@ class CheckUpdates
                     instant_remote_process(['pacman -Sy'], $server);
                     $output = instant_remote_process(['pacman -Qu 2>/dev/null'], $server);
                     $out = $this->parsePacmanOutput($output);
+                    $out['osId'] = $osId;
+                    $out['package_manager'] = $packageManager;
+
+                    return $out;
+                case 'nixos':
+                    instant_remote_process(['nix-channel --update nixos'], $server);
+                    $output = instant_remote_process(['nixos-rebuild dry-build 2>&1'], $server);
+
+                    $out = $this->parseNixosOutput($output);
                     $out['osId'] = $osId;
                     $out['package_manager'] = $packageManager;
 
@@ -272,5 +285,60 @@ class CheckUpdates
         }
 
         return $result;
+    }
+
+    private function parseNixosOutput(string $output): array
+    {
+        $updates = [];
+        $lines = explode("\n", $output);
+
+        foreach ($lines as $line) {
+            if (str_contains($line, 'these') && str_contains($line, 'paths will be fetched')) {
+                if (preg_match('/these (\d+) paths will be fetched/', $line, $matches)) {
+                    $packageCount = (int) $matches[1];
+
+                    $updates[] = [
+                        'package' => 'nixos-system',
+                        'new_version' => 'latest-channel',
+                        'current_version' => 'current-channel',
+                        'architecture' => 'system',
+                        'repository' => 'nixos-channel',
+                        'is_system_update' => true,
+                        'package_count' => $packageCount,
+                        'description' => 'NixOS system rebuild with '.$packageCount.' updated packages',
+                    ];
+                }
+                break;
+            }
+        }
+
+        if (empty($updates)) {
+            $hasChanges = false;
+            foreach ($lines as $line) {
+                if (str_contains($line, 'building') || str_contains($line, 'fetching') || str_contains($line, 'unpacking')) {
+                    $hasChanges = true;
+                    break;
+                }
+            }
+
+            if ($hasChanges) {
+                $updates[] = [
+                    'package' => 'nixos-system',
+                    'new_version' => 'latest-channel',
+                    'current_version' => 'current-channel',
+                    'architecture' => 'system',
+                    'repository' => 'nixos-channel',
+                    'is_system_update' => true,
+                    'package_count' => 'unknown',
+                    'description' => 'NixOS system rebuild with updates available',
+                ];
+            }
+        }
+
+        return [
+            'total_updates' => count($updates),
+            'updates' => $updates,
+            'is_nixos' => true,
+        ];
     }
 }
